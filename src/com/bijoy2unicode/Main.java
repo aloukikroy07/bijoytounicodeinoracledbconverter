@@ -13,82 +13,47 @@ import javax.script.ScriptException;
 import java.io.*;
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.sql.*;
+import java.util.ArrayList;
 import java.util.Scanner;
 
 public class Main {
 
-    public static void main(String[] args) throws IOException {
-        Scanner sc= new Scanner(System.in);
-        System.out.print("Enter path of the file: ");
-        String path = sc.nextLine();
+    public static void main(String[] args) throws IOException, SQLException, ClassNotFoundException {
+        String columnName="father_name";
+        String unionID="2302";
+        ArrayList<String> beneficiaryName = new ArrayList<>();
+        ResultSet rs = null;
+        Statement stmt = getDbConnection().createStatement();
+        String sql = "select distinct "+columnName+" from t_beneficiaries where union_id="+unionID;
+        rs = stmt.executeQuery(sql);
 
-        FileInputStream fis=new FileInputStream(new File(path));
-        File file = new File(path);
-        XSSFWorkbook wb=new XSSFWorkbook(fis);
-        int sheetCount = wb.getNumberOfSheets();
-        Workbook workbook = new XSSFWorkbook();
-        System.out.println("Please wait. This may take a while.");
-        for(int k=0; k<sheetCount; k++){
-            XSSFSheet sheet=wb.getSheetAt(k);
-            FormulaEvaluator formulaEvaluator=wb.getCreationHelper().createFormulaEvaluator();
-            String cellValue="0";
-            int i = 0;
-            String sheetName = wb.getSheetName(k);
-            Sheet createSheet = workbook.createSheet(sheetName);
-            for(Row row: sheet)
-            {
-                int j = 0;
-                Row createRow = createSheet.createRow(i);
-                for (Cell cell : row)
-                {
-                    Cell createCell = createRow.createCell(j);
-                    switch (cell.getCellType()) {
-                        case Cell.CELL_TYPE_STRING:
-                            cellValue = cell.getStringCellValue();
-                            break;
+        int count=0;
 
-                        case Cell.CELL_TYPE_FORMULA:
-                            cellValue = cell.getCellFormula();
-                            break;
-
-                        case Cell.CELL_TYPE_NUMERIC:
-                            if (DateUtil.isCellDateFormatted(cell)) {
-                                cellValue = cell.getDateCellValue().toString();
-                            } else {
-                                BigDecimal b = new BigDecimal(cell.getNumericCellValue(), MathContext.DECIMAL64);
-                                cellValue = String.valueOf(b);
-                            }
-                            break;
-
-                        case Cell.CELL_TYPE_BLANK:
-                            cellValue = "";
-                            break;
-
-                        case Cell.CELL_TYPE_BOOLEAN:
-                            cellValue = Boolean.toString(cell.getBooleanCellValue());
-                            break;
-                    }
-                    createCell.setCellValue(unicode(cellValue));
-                    j++;
-                }
-                i++;
-            }
+        while (rs.next()){
+            beneficiaryName.add(rs.getString(columnName));
         }
 
-//        File currDir = new File(".");
-//        String filePath = currDir.getAbsolutePath();
-//        String fileLocation = filePath.substring(0, filePath.length() - 1) + file.getName();
-        Scanner enterPath= new Scanner(System.in);
-        System.out.print("Enter path of the file: ");
-        String outPutPath = sc.nextLine();
-        File currDir = new File(outPutPath);
-        String filePath = currDir.getPath()+"\\";
-        String fileLocation = filePath + file.getName();
+        Characters characters = new Characters();
+        String[] characterList = characters.listOfCharacters;
 
-        FileOutputStream outputStream = new FileOutputStream(fileLocation);
-        workbook.write(outputStream);
-        workbook.close();
-        System.out.println("Successfully converted to unicode and stored in "+fileLocation);
+        int length = characterList.length;
+        int listLength = beneficiaryName.size();
+
+        for(int i=0; i< beneficiaryName.size(); i++){
+            for(int j=0; j< length; j++){
+                if(beneficiaryName.get(i) != null){
+                    if(beneficiaryName.get(i).contains(characterList[j])){
+                        String unicodeData = unicode(beneficiaryName.get(i));
+                        String sql1 = "update t_beneficiaries set "+columnName+"='"+unicodeData+"' where "+columnName+"='"+beneficiaryName.get(i)+"'";
+                        stmt.executeUpdate(sql1);
+                        count=count+1;
+                        break;
+                    }
+                }
+            }
+        }
+        System.out.println(count);
     }
 
     public static String unicode(String data){
@@ -118,6 +83,22 @@ public class Main {
         catch (IOException e) {
             return data;
         }
+    }
+
+    public static Connection getDbConnection() throws SQLException, ClassNotFoundException {
+        Connection connection = null ;
+        try {
+            Class.forName("com.oracle.jdbc.Driver");
+        } catch (ClassNotFoundException e) {
+        }
+        try {
+            connection = DriverManager.getConnection("jdbc:oracle:thin:@192.168.90.137:1521/FOODDRDB?user=foodprod&password=foodprod");
+
+        } catch (SQLException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        return connection;
     }
 }
 
